@@ -44,13 +44,15 @@ func main() {
 	defer db.WriteToFile(options.DbPath)
 
 	var command string
-	if parser.Active != nil {
+	switch {
+	case parser.Active != nil:
 		command = parser.Active.Name
-	} else if len(args) == 0 {
+	case len(args) == 0:
 		command = "list"
-	} else {
+	default:
 		command = "new"
 	}
+
 	switch command {
 	case "new":
 		db.NewTask(strings.Join(args, " "))
