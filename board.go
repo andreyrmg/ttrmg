@@ -28,10 +28,10 @@ type task struct {
 	Status bool   `json:"status"`
 }
 
-var green = color.New(color.FgGreen).SprintFunc()
-var purple = color.New(color.FgMagenta).SprintFunc()
-var gray = color.New(color.FgHiBlack).SprintFunc()
-var u = color.New(color.Underline).SprintFunc()
+var green = color.New(color.FgGreen)
+var purple = color.New(color.FgMagenta)
+var gray = color.New(color.FgHiBlack)
+var underline = color.New(color.Underline)
 
 var indent = 10
 
@@ -149,53 +149,62 @@ func (db *database) checkTask(taskId int64, bName string) error {
 	return err
 }
 
-func (db *database) stat() string {
-	var done int64 = 0
-	var inProgress int64 = 0
-	var percent int64 = 0
+type stat struct {
+	done       int64
+	inProgress int64
+	percent    int64
+}
+
+func (db *database) stat() stat {
+	result := stat{done: 0, inProgress: 0, percent: 0}
 
 	for _, board := range db.Boards {
 		if len(board.Tasks) != 0 {
 			for _, task := range board.Tasks {
 				if task.Status {
-					done++
+					result.done++
 				} else {
-					inProgress++
+					result.inProgress++
 				}
 			}
 		}
 	}
-	if done+inProgress == 0 {
-		return strings.Repeat(" ", indent/2) + "No tasks were found.\n"
+	if result.done > 0 || result.inProgress > 0 {
+		result.percent = result.done * 100 / (result.done + result.inProgress)
 	}
-	percent = done * 100 / (done + inProgress)
-	return fmt.Sprintf(
-		"%s%d%% of all tasks complete\n%s%s done | %s in progress\n",
-		strings.Repeat(" ", indent/2), percent,
-		strings.Repeat(" ", indent/2), green(done), purple(inProgress),
-	)
+	return result
 }
 
 func (db *database) printDB(pattern string) {
 	for _, board := range db.Boards {
-		fmt.Printf("%s@%s\n", strings.Repeat(" ", indent/2), u(board.Name))
+		fmt.Printf("%[2]*[1]s@", "", indent/2)
+		underline.Println(board.Name)
 		for _, task := range board.Tasks {
 			if fuzzy.Match(pattern, task.Text) {
-				var id = fmt.Sprintf("%d.", task.ID)
+				gray.Printf("%[1]*[2]d. ", indent, task.ID)
 				if task.Status {
-					fmt.Printf("%s%s %s %s\n",
-						strings.Repeat(" ", indent-len(id)),
-						gray(id), green("[✓]"), gray(task.Text))
+					green.Print("[✓] ")
+					gray.Print(task.Text)
 				} else {
-					fmt.Printf("%s%s %s %s\n",
-						strings.Repeat(" ", indent-len(id)),
-						gray(id), purple("[ ]"), task.Text)
+					purple.Print("[ ] ")
+					fmt.Print(task.Text)
 				}
+				fmt.Println()
 			}
 		}
 		fmt.Println()
 	}
-	fmt.Print(db.stat())
+	stat := db.stat()
+	if stat.done == 0 && stat.inProgress == 0 {
+		fmt.Println("No tasks were found.")
+	} else {
+		fmt.Printf("%[1]*[2]s%[3]d%% of all tasks complete\n", indent/2, "", stat.percent)
+		fmt.Printf("%[1]*[2]s", indent/2, "")
+		green.Print(stat.done)
+		fmt.Print(" done | ")
+		purple.Print(stat.inProgress)
+		fmt.Println(" in progress")
+	}
 }
 
 // vi:noet:ts=4:sw=4:
